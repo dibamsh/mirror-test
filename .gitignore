@@ -1,0 +1,6 @@
+*.zip
+*.pickle
+*.model
+*.log
+.DS_Store
+__pycache__/
