@@ -5,3 +5,5 @@
 parse_bias.py
 .DS_Store
 __pycache__/
+*.png
+results.log
