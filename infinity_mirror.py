@@ -5,8 +5,7 @@ import numpy as np, torch, networkx as nx
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE, 'AugmentedKGE'))
 from DataLoader.TripleManager import TripleManager
-sys.path.insert(0, '/Users/dm6541/Research_Experiments')
-from algorithms.algorithms import PageRankAlgorithms
+from pagerank import standard_pagerank
 
 DATASETS = {
     'nell': {
@@ -189,7 +188,7 @@ def collect_bias(results, pr):
 
 # ─── Approach 1: Replace ──────────────────────────────────────────────────────
 
-def run_replace(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
+def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
     """
     Each iteration: current test facts → top-1 predictions → become next iteration's test facts.
     Graph = train+valid + current_predictions (test facts replaced).
@@ -199,7 +198,7 @@ def run_replace(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
     test_set = set((h, r, t) for h, r, t in test_hrt)
     base_graph_triples = [tri for tri in original_hrt if tri not in test_set]
 
-    pr0, it0 = algo.standard_pagerank(build_graph(original_hrt, emap, rmap))
+    pr0, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
     print(f"[ITER] iteration=0 new_triples=0 total_triples={len(original_hrt)} pagerank_iters={it0}")
 
     current_facts = test_hrt                  # (h, r, t) triples we predict FOR
@@ -218,7 +217,7 @@ def run_replace(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
 
         # Graph = base (train+valid) + new predictions (replacing old test facts)
         all_graph = base_graph_triples + tail_preds + head_preds
-        pr, pr_iters = algo.standard_pagerank(build_graph(all_graph, emap, rmap))
+        pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
         td, hd, pr_rt, pr_rh = collect_bias(results, pr)
         log_iter_full(it, td, hd, pr_rt, pr_rh,
@@ -240,7 +239,7 @@ def run_replace(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
 
 # ─── Approach 2: Add ──────────────────────────────────────────────────────────
 
-def run_add(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
+def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
     """
     Test facts are fixed (original test set).
     Each iteration: top-1 predictions become "known facts" (added to graph + excluded from future).
@@ -249,7 +248,7 @@ def run_add(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
     """
     print(f"[MODE] approach=add iterations={n_iters}")
 
-    pr0, it0 = algo.standard_pagerank(build_graph(original_hrt, emap, rmap))
+    pr0, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
     print(f"[ITER] iteration=0 new_triples=0 total_triples={len(original_hrt)} pagerank_iters={it0}")
 
     extra_excl   = set()       # grows each iter: (h,r,t) triples already predicted
@@ -272,7 +271,7 @@ def run_add(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters):
         accumulated.update(new_this_iter)
 
         all_graph = original_hrt + list(accumulated)
-        pr, pr_iters = algo.standard_pagerank(build_graph(all_graph, emap, rmap))
+        pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
         td, hd, pr_rt, pr_rh = collect_bias(results, pr)
         log_iter_full(it, td, hd, pr_rt, pr_rh,
@@ -312,12 +311,10 @@ def main():
     print(f"[DATA] entities={len(emap)} relations={len(rmap)} "
           f"train={len(train_hrt)} test={len(test_hrt)} valid={len(valid_hrt)} total={len(original_hrt)}")
 
-    algo = PageRankAlgorithms()
-
     if mode == 'replace':
-        run_replace(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters)
+        run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters)
     else:
-        run_add(model, tm, emap, rmap, algo, original_hrt, test_hrt, n_iters)
+        run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters)
 
 
 if __name__ == '__main__':
