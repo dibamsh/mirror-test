@@ -7,3 +7,4 @@ parse_bias.py
 __pycache__/
 *.png
 results.log
+plot_infinity.py
