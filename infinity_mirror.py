@@ -137,25 +137,12 @@ def bias(results, pr):
     return np.array(td), np.array(hd)
 
 
-def log_iter(it, td, hd, total_triples, new_triples, pr_iters):
-    all_d = np.concatenate([td, hd])
-    print(f"[ITER] iteration={it} new_triples={new_triples} total_triples={total_triples} pagerank_iters={pr_iters}")
-    for label, d in [('tail', td), ('head', hd), ('overall', all_d)]:
-        if len(d) == 0: continue
-        print(f"[BIAS] iteration={it} type={label:<7} n={len(d)} "
-              f"pct_higher={np.mean(d > 0)*100:.1f}% "
-              f"signed_diff={np.mean(d):+.10f} "
-              f"mean_abs={np.mean(np.abs(d)):.10f} "
-              f"mean_pr_real={np.mean([pr_real for pr_real in [0]]):.10f}")
-
-
-def log_iter_full(it, td, hd, pr_reals_t, pr_reals_h, total_triples, new_triples, pr_iters):
-    """Extended logging with mean PR of real vs predicted entities."""
+def log_bias(it, td, hd, pr_reals_t, pr_reals_h, total_triples, new_triples, pr_iters):
     all_d = np.concatenate([td, hd])
     print(f"[ITER] iteration={it} new_triples={new_triples} total_triples={total_triples} pagerank_iters={pr_iters}")
     for label, d, pr_r in [('tail', td, pr_reals_t), ('head', hd, pr_reals_h)]:
         if len(d) == 0: continue
-        pr_pred = np.array(pr_r) + d   # pr_pred = pr_real + diff
+        pr_pred = np.array(pr_r) + d
         print(f"[BIAS] iteration={it} type={label:<7} n={len(d)} "
               f"pct_higher={np.mean(d > 0)*100:.1f}% "
               f"signed_diff={np.mean(d):+.10f} "
@@ -220,7 +207,7 @@ def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
         td, hd, pr_rt, pr_rh = collect_bias(results, pr)
-        log_iter_full(it, td, hd, pr_rt, pr_rh,
+        log_bias(it, td, hd, pr_rt, pr_rh,
                       len(all_graph), len(tail_preds) + len(head_preds), pr_iters)
         print(f"[TIME] iteration={it} scoring={elapsed:.1f}s")
 
@@ -274,7 +261,7 @@ def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
         td, hd, pr_rt, pr_rh = collect_bias(results, pr)
-        log_iter_full(it, td, hd, pr_rt, pr_rh,
+        log_bias(it, td, hd, pr_rt, pr_rh,
                       len(all_graph), len(new_this_iter), pr_iters)
         print(f"[TIME] iteration={it} scoring={elapsed:.1f}s")
 
