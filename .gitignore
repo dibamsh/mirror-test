@@ -2,6 +2,7 @@
 *.pickle
 *.model
 *.log
+*_scores.csv
 parse_bias.py
 .DS_Store
 __pycache__/

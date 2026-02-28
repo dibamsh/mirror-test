@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, os, time
+import sys, os, time, csv
 import numpy as np, torch, networkx as nx
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -77,7 +77,7 @@ def top1(h, r, t, side, model, tm, extra_excl=None):
     Top-1 prediction for fact (h,r,t) on given side.
     extra_excl: set of (h,r,t) triples to additionally exclude on top of TM's LCWA.
     Falls back to all entities seen in that role for the relation if TM doesn't know the entity.
-    Returns predicted entity ID or None.
+    Returns (predicted entity ID, score) or (None, None).
     """
     try:
         candidates = list(tm.get_corrupted(h, r, t, side))
@@ -97,28 +97,54 @@ def top1(h, r, t, side, model, tm, extra_excl=None):
         else:
             candidates = [e for e in candidates if (e, r, t) not in extra_excl]
 
-    if not candidates: return None
+    if not candidates: return None, None
     n = len(candidates)
     arr = np.array(candidates, np.int64)
     if side == 'tail':
         aH, aR, aT = np.full(n, h, np.int64), np.full(n, r, np.int64), arr
     else:
         aH, aR, aT = arr, np.full(n, r, np.int64), np.full(n, t, np.int64)
-    return int(candidates[int(np.argmax(score_batch(aH, aR, aT, model)))])
+    scores = score_batch(aH, aR, aT, model)
+    best = int(np.argmax(scores))
+    return int(candidates[best]), float(scores[best])
 
 
 def predict_all(facts_hrt, model, tm, extra_excl=None):
-    """Get top-1 tail and head prediction for each fact (h,r,t)."""
+    """Get top-1 tail and head prediction with scores for each fact (h,r,t)."""
     results = []
     for i, (h, r, t) in enumerate(facts_hrt):
         if (i + 1) % 500 == 0:
             print(f"[SCORING] {i+1}/{len(facts_hrt)}", flush=True)
+        tail_pred, tail_score = top1(h, r, t, 'tail', model, tm, extra_excl)
+        head_pred, head_score = top1(h, r, t, 'head', model, tm, extra_excl)
+        real_score = float(score_batch([h], [r], [t], model)[0])
         results.append({
-            'fact': (h, r, t),
-            'tail_pred': top1(h, r, t, 'tail', model, tm, extra_excl),
-            'head_pred': top1(h, r, t, 'head', model, tm, extra_excl),
+            'fact':           (h, r, t),
+            'real_score':     real_score,
+            'tail_pred':      tail_pred,
+            'tail_score':     tail_score,
+            'head_pred':      head_pred,
+            'head_score':     head_score,
         })
     return results
+
+
+def save_scores(scores_path, it, results, emap, rmap):
+    with open(scores_path, 'a', newline='') as f:
+        writer = csv.writer(f)
+        for res in results:
+            h, r, t = res['fact']
+            writer.writerow([
+                it,
+                h, emap.get(h, ''),
+                r, rmap.get(r, ''),
+                t, emap.get(t, ''),
+                res['real_score'],
+                res['tail_pred'], emap.get(res['tail_pred'], '') if res['tail_pred'] is not None else '',
+                res['tail_score'],
+                res['head_pred'], emap.get(res['head_pred'], '') if res['head_pred'] is not None else '',
+                res['head_score'],
+            ])
 
 
 def log_bias(it, results, pr, total_triples, new_triples, pr_iters):
@@ -135,9 +161,9 @@ def log_bias(it, results, pr, total_triples, new_triples, pr_iters):
 
 # ─── Approach 1: Replace ──────────────────────────────────────────────────────
 
-def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
+def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters, scores_path):
     """
-    Each iteration: current test facts → top-1 predictions → become next iteration's test facts.
+    Each iteration: current test facts, top-1 predictions, become next iteration's test facts.
     Graph = train+valid + current_predictions (test facts replaced).
     Tracks centrality of predictions relative to the current fact entity.
     """
@@ -145,11 +171,20 @@ def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
     test_set = set((h, r, t) for h, r, t in test_hrt)
     base_graph_triples = [tri for tri in original_hrt if tri not in test_set]
 
-    pr0, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
+    _, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
     print(f"[ITER] iteration=0 new_triples=0 total_triples={len(original_hrt)} pagerank_iters={it0}")
 
-    current_facts = test_hrt                  # (h, r, t) triples we predict FOR
-    current_graph_extra = list(test_hrt)      # what gets added to base graph
+    # write CSV header
+    with open(scores_path, 'w', newline='') as f:
+        csv.writer(f).writerow([
+            'iteration',
+            'h', 'h_name', 'r', 'r_name', 't', 't_name',
+            'real_score',
+            'tail_pred', 'tail_pred_name', 'tail_score',
+            'head_pred', 'head_pred_name', 'head_score',
+        ])
+
+    current_facts = test_hrt
 
     for it in range(1, n_iters + 1):
         start = time.perf_counter()
@@ -167,24 +202,24 @@ def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
         log_bias(it, results, pr, len(all_graph), len(tail_preds) + len(head_preds), pr_iters)
+        save_scores(scores_path, it, results, emap, rmap)
         print(f"[TIME] iteration={it} scoring={elapsed:.1f}s")
 
         # Next iteration: predict FROM the predictions (tail predictions as new facts)
-        # Replace (s,p,o) → (s,p,o') so next iteration queries (s,p,o')
+        # Replace (s,p,o) with (s,p,o') so next iteration queries (s,p,o')
         next_facts = []
         for res in results:
             h, r, t = res['fact']
             if res['tail_pred'] is not None:
                 next_facts.append((h, r, res['tail_pred']))   # replaced tail
         current_facts = next_facts
-        current_graph_extra = tail_preds
 
     print(f"[DONE] approach=replace")
 
 
 # ─── Approach 2: Add ──────────────────────────────────────────────────────────
 
-def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
+def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters, scores_path):
     """
     Test facts are fixed (original test set).
     Each iteration: top-1 predictions become "known facts" (added to graph + excluded from future).
@@ -193,8 +228,18 @@ def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
     """
     print(f"[MODE] approach=add iterations={n_iters}")
 
-    pr0, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
+    _, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
     print(f"[ITER] iteration=0 new_triples=0 total_triples={len(original_hrt)} pagerank_iters={it0}")
+
+    # write CSV header
+    with open(scores_path, 'w', newline='') as f:
+        csv.writer(f).writerow([
+            'iteration',
+            'h', 'h_name', 'r', 'r_name', 't', 't_name',
+            'real_score',
+            'tail_pred', 'tail_pred_name', 'tail_score',
+            'head_pred', 'head_pred_name', 'head_score',
+        ])
 
     extra_excl   = set()       # grows each iter: (h,r,t) triples already predicted
     accumulated  = set()       # all predictions so far (added to graph)
@@ -219,6 +264,7 @@ def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
         log_bias(it, results, pr, len(all_graph), len(new_this_iter), pr_iters)
+        save_scores(scores_path, it, results, emap, rmap)
         print(f"[TIME] iteration={it} scoring={elapsed:.1f}s")
 
     print(f"[DONE] approach=add")
@@ -254,10 +300,12 @@ def main():
     print(f"[DATA] entities={len(emap)} relations={len(rmap)} "
           f"train={len(train_hrt)} test={len(test_hrt)} valid={len(valid_hrt)} total={len(original_hrt)}")
 
+    scores_path = f"{ds_name}_{name}_{mode}_scores.csv"
+
     if mode == 'replace':
-        run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters)
+        run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters, scores_path)
     else:
-        run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters)
+        run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters, scores_path)
 
 
 if __name__ == '__main__':
