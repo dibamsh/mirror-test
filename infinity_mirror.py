@@ -10,7 +10,7 @@ from algorithms.algorithms import PageRankAlgorithms
 
 DATASETS = {
     'nell': {
-        'model_dir':  os.path.join(BASE, 'Model/3/'),
+        'model_dir':  os.environ.get('NELL_MODEL_DIR',     os.path.join(BASE, 'Model/3/')),
         'dataset_dir': os.path.join(BASE, 'datasets/NELL-995/'),
         'prefix':     'resplit_',
         'models': {
@@ -21,7 +21,7 @@ DATASETS = {
         },
     },
     'fb15k237': {
-        'model_dir':  os.path.join(BASE, 'Model/2/'),
+        'model_dir':  os.environ.get('FB15K237_MODEL_DIR', os.path.join(BASE, 'Model/2/')),
         'dataset_dir': os.path.join(BASE, 'datasets/FB15K237/'),
         'prefix':     '',
         'models': {
