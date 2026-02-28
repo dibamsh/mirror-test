@@ -1,68 +1,102 @@
-# Mirror Test
+# Infinity Mirror Test — KGE Centrality Bias
 
-Evaluates centrality bias in Knowledge Graph Embedding (KGE) models using an Infinity Mirror Test.
+Tests whether knowledge graph embedding models are biased toward predicting high-PageRank (hub) entities.
 
-## Run
+---
 
-**Interactive — pick dataset, model, mode, iterations:**
-```bash
-python3 main.py
+## Setup
+
+### 1. Download the models
+
+Download from: https://drive.google.com/drive/u/0/folders/14jzhmwUrQmreZfmMH8eC8MYocdH_YS3k
+
+Folders **2** (FB15K237) and **3** (NELL-995) are used in this project.
+
+Extract them so the structure looks like:
 ```
-Prompts you to choose each option, with `all` available to run everything. Output saved to `{dataset}_{model}_{mode}.log`.
-
-**Direct single run:**
-```bash
-python3 infinity_mirror.py <model> <mode> <iters> <dataset> > output.log
-```
-```bash
-python3 infinity_mirror.py transe replace 5 nell > nell_transe_replace.log
-python3 infinity_mirror.py rotate add 5 fb15k237 > fb_rotate_add.log
+Model/
+  2/   ← FB15K237 models
+  3/   ← NELL-995 models
 ```
 
----
-
-## What it does
-
-For each test fact `(s, p, o)`, the model makes two predictions:
-- **tail**: `(s, p, ?)` — compare PageRank of `?` vs `o`
-- **head**: `(?, p, o)` — compare PageRank of `?` vs `s`
-
-If predictions consistently have **lower PageRank than real entities** → low-centrality bias (model avoids hubs).
-
-### Two approaches
-
-**replace** — each iteration's test facts are the predictions from the previous iteration. The model scores its own outputs. Reveals whether bias compounds or flips when the model feeds on itself.
-
-**add** — test facts stay fixed. Each iteration's predictions are added to the known graph, forcing the model to find the next-best answer. Reveals how bias evolves deeper in the model's score distribution.
-
----
-
-## Datasets & Models
-
-| Dataset   | Entities | Relations | Triples |
-|-----------|----------|-----------|---------|
-| NELL-995  | 75,492   | 200       | 154,213 |
-| FB15K237  | 14,541   | 237       | 310,116 |
-
-Models used: TransE, RotatE, ComplEx, BoxE (pre-trained, no training happens).
-
----
-
-## Key metric
-
-`pct_higher` — % of predictions where `PR(predicted) > PR(real entity)`.
-- ~50% = unbiased
-- Well below 50% = low-centrality bias (model prefers peripheral entities)
-- Well above 50% = high-centrality bias (model prefers hubs)
-
----
-
-## Dependencies
+### 2. Install requirements
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Also requires (local, not pip):
-- `AugmentedKGE` at `/Users/dm6541/AugmentedKGE`
-- `Research_Experiments` at `/Users/dm6541/Research_Experiments`
+### 3. Set model paths
+
+Open `main.py` and update these two lines to point to your model folders:
+
+```python
+NELL_MODEL_DIR     = 'Model/3/'
+FB15K237_MODEL_DIR = 'Model/2/'
+```
+
+---
+
+## How to run
+
+```bash
+python main.py
+```
+
+It will ask four questions:
+
+```
+dataset (nell / fb15k237)?
+model (transe / rotate / complex / boxe)?
+mode (replace / add)?
+iterations?
+```
+
+**Example — NELL-995:**
+```
+dataset (nell / fb15k237)? nell
+model (transe / rotate / complex / boxe)? transe
+mode (replace / add)? replace
+iterations? 5
+```
+
+**Example — FB15K237:**
+```
+dataset (nell / fb15k237)? fb15k237
+model (transe / rotate / complex / boxe)? transe
+mode (replace / add)? replace
+iterations? 5
+```
+
+Results are saved to `{dataset}_{model}_{mode}.log`.
+
+---
+
+## What the log contains
+
+- `[CONFIG]` — what was run
+- `[DATA]` — number of entities, relations, and triples per split
+- `[ITER]` — per iteration: total triples in graph, how many were added
+- `[BIAS]` — **the key result**: `pct_higher` = % of predictions where the predicted entity has higher PageRank than the real entity
+- `[TIME]` — scoring time per iteration
+
+---
+
+## Code overview
+
+| File | What it does |
+|------|--------------|
+| `main.py` | Entry point. Asks for inputs, runs the experiment, saves output to a log file. |
+| `infinity_mirror.py` | Core experiment. Loads model and dataset, runs the mirror test, logs bias results. |
+| `pagerank.py` | Standard PageRank on a directed multigraph. |
+| `AugmentedKGE/` | Provides TripleManager for candidate filtering under LCWA. Copied from [nari97/AugmentedKGE](https://github.com/nari97/AugmentedKGE). |
+| `datasets/` | NELL-995 and FB15K237 triple files (train/valid/test). |
+
+### Two modes
+
+**replace** — each iteration, predictions *replace* the test facts. The model then predicts on its own previous output, creating a feedback loop.
+
+**add** — test facts stay fixed, but each iteration's predictions are excluded from future candidates. The model is forced to find its next-best answer each time.
+
+### The bias metric
+
+After each iteration, PageRank is computed on the updated graph. For every prediction, we check: does the predicted entity have higher PageRank than the real entity? `pct_higher` is the percentage where this is true. Above 50% consistently means the model is biased toward hub entities.

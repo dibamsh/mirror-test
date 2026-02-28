@@ -121,56 +121,16 @@ def predict_all(facts_hrt, model, tm, extra_excl=None):
     return results
 
 
-def bias(results, pr):
-    """
-    For each prediction, compute signed PR diff: PR(predicted) - PR(real entity).
-    Positive = model picked a more central entity than the real one.
-    Negative = model picked a less central entity (low-centrality bias).
-    """
-    td, hd = [], []
-    for res in results:
-        h, r, t = res['fact']
-        if res['tail_pred'] is not None:
-            td.append(pr.get(res['tail_pred'], 0) - pr.get(t, 0))
-        if res['head_pred'] is not None:
-            hd.append(pr.get(res['head_pred'], 0) - pr.get(h, 0))
-    return np.array(td), np.array(hd)
-
-
-def log_bias(it, td, hd, pr_reals_t, pr_reals_h, total_triples, new_triples, pr_iters):
-    all_d = np.concatenate([td, hd])
+def log_bias(it, results, pr, total_triples, new_triples, pr_iters):
+    tail = [pr.get(r['tail_pred'], 0) > pr.get(r['fact'][2], 0)
+            for r in results if r['tail_pred'] is not None]
+    head = [pr.get(r['head_pred'], 0) > pr.get(r['fact'][0], 0)
+            for r in results if r['head_pred'] is not None]
+    all_ = tail + head
     print(f"[ITER] iteration={it} new_triples={new_triples} total_triples={total_triples} pagerank_iters={pr_iters}")
-    for label, d, pr_r in [('tail', td, pr_reals_t), ('head', hd, pr_reals_h)]:
-        if len(d) == 0: continue
-        pr_pred = np.array(pr_r) + d
-        print(f"[BIAS] iteration={it} type={label:<7} n={len(d)} "
-              f"pct_higher={np.mean(d > 0)*100:.1f}% "
-              f"signed_diff={np.mean(d):+.10f} "
-              f"mean_abs={np.mean(np.abs(d)):.10f} "
-              f"mean_pr_real={np.mean(pr_r):.10f} "
-              f"mean_pr_pred={np.mean(pr_pred):.10f}")
-    if len(all_d) > 0:
-        print(f"[BIAS] iteration={it} type=overall n={len(all_d)} "
-              f"pct_higher={np.mean(all_d > 0)*100:.1f}% "
-              f"signed_diff={np.mean(all_d):+.10f} "
-              f"mean_abs={np.mean(np.abs(all_d)):.10f}")
-
-
-def collect_bias(results, pr):
-    td, hd, pr_rt, pr_rh = [], [], [], []
-    for res in results:
-        h, r, t = res['fact']
-        if res['tail_pred'] is not None:
-            pr_t = pr.get(t, 0)
-            pr_p = pr.get(res['tail_pred'], 0)
-            td.append(pr_p - pr_t)
-            pr_rt.append(pr_t)
-        if res['head_pred'] is not None:
-            pr_h = pr.get(h, 0)
-            pr_p = pr.get(res['head_pred'], 0)
-            hd.append(pr_p - pr_h)
-            pr_rh.append(pr_h)
-    return np.array(td), np.array(hd), pr_rt, pr_rh
+    if tail:  print(f"[BIAS] iteration={it} type=tail    pct_higher={np.mean(tail)*100:.1f}%")
+    if head:  print(f"[BIAS] iteration={it} type=head    pct_higher={np.mean(head)*100:.1f}%")
+    if all_:  print(f"[BIAS] iteration={it} type=overall pct_higher={np.mean(all_)*100:.1f}%")
 
 
 # ─── Approach 1: Replace ──────────────────────────────────────────────────────
@@ -206,9 +166,7 @@ def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         all_graph = base_graph_triples + tail_preds + head_preds
         pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
-        td, hd, pr_rt, pr_rh = collect_bias(results, pr)
-        log_bias(it, td, hd, pr_rt, pr_rh,
-                      len(all_graph), len(tail_preds) + len(head_preds), pr_iters)
+        log_bias(it, results, pr, len(all_graph), len(tail_preds) + len(head_preds), pr_iters)
         print(f"[TIME] iteration={it} scoring={elapsed:.1f}s")
 
         # Next iteration: predict FROM the predictions (tail predictions as new facts)
@@ -260,9 +218,7 @@ def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         all_graph = original_hrt + list(accumulated)
         pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
 
-        td, hd, pr_rt, pr_rh = collect_bias(results, pr)
-        log_bias(it, td, hd, pr_rt, pr_rh,
-                      len(all_graph), len(new_this_iter), pr_iters)
+        log_bias(it, results, pr, len(all_graph), len(new_this_iter), pr_iters)
         print(f"[TIME] iteration={it} scoring={elapsed:.1f}s")
 
     print(f"[DONE] approach=add")
