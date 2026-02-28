@@ -8,3 +8,5 @@ __pycache__/
 *.png
 results.log
 plot_infinity.py
+learn.ipynb
+Model/

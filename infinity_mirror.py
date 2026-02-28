@@ -2,17 +2,17 @@
 import sys, os, time
 import numpy as np, torch, networkx as nx
 
-sys.path.insert(0, '/Users/dm6541/AugmentedKGE')
+BASE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(BASE, 'AugmentedKGE'))
 from DataLoader.TripleManager import TripleManager
 sys.path.insert(0, '/Users/dm6541/Research_Experiments')
 from algorithms.algorithms import PageRankAlgorithms
 
 DATASETS = {
     'nell': {
-        'model_dir': '/Users/dm6541/mirror test/Model/3/',
-        'aug_dir':   '/Users/dm6541/AugmentedKGE/Datasets/NELL-995/',
-        'data_dir':  '/Users/dm6541/mirror test/datasets/NELL-995/',
-        'prefix':    'resplit_',
+        'model_dir':  os.path.join(BASE, 'Model/3/'),
+        'dataset_dir': os.path.join(BASE, 'datasets/NELL-995/'),
+        'prefix':     'resplit_',
         'models': {
             'transe':  'transe_resplit__67_Expl.model',
             'rotate':  'rotate_resplit__43_Expl.model',
@@ -21,10 +21,9 @@ DATASETS = {
         },
     },
     'fb15k237': {
-        'model_dir': '/Users/dm6541/mirror test/Model/2/',
-        'aug_dir':   '/Users/dm6541/AugmentedKGE/Datasets/FB15K237/',
-        'data_dir':  '/Users/dm6541/mirror test/datasets/FB15K237/',
-        'prefix':    '',
+        'model_dir':  os.path.join(BASE, 'Model/2/'),
+        'dataset_dir': os.path.join(BASE, 'datasets/FB15K237/'),
+        'prefix':     '',
         'models': {
             'transe':  'transe__66_Expl.model',
             'rotate':  'rotate__42_Expl.model',
@@ -35,7 +34,7 @@ DATASETS = {
 }
 
 
-def load_maps(aug_dir):
+def load_maps(dataset_dir):
     def read(p):
         m = {}
         with open(p) as f:
@@ -44,7 +43,7 @@ def load_maps(aug_dir):
                 parts = line.strip().split('\t')
                 if len(parts) == 2: m[int(parts[1])] = parts[0]
         return m
-    return read(aug_dir + 'entity2id.txt'), read(aug_dir + 'relation2id.txt')
+    return read(dataset_dir + 'entity2id.txt'), read(dataset_dir + 'relation2id.txt')
 
 
 def score_batch(h, r, t, model):
@@ -300,15 +299,15 @@ def main():
 
     model = torch.load(cfg['model_dir'] + cfg['models'][name], map_location='cpu', weights_only=False)
     model.eval()
-    emap, rmap = load_maps(cfg['aug_dir'])
+    emap, rmap = load_maps(cfg['dataset_dir'])
 
     prefix = cfg['prefix']
     splits = [f"{prefix}test", f"{prefix}valid", f"{prefix}train"]
-    tm = TripleManager(cfg['aug_dir'], splits=splits, corruption_mode="LCWA")
+    tm = TripleManager(cfg['dataset_dir'], splits=splits, corruption_mode="LCWA")
 
-    train_hrt = load_hrt(cfg['data_dir'] + f"{prefix}train2id.txt")
-    test_hrt  = load_hrt(cfg['data_dir'] + f"{prefix}test2id.txt")
-    valid_hrt = load_hrt(cfg['data_dir'] + f"{prefix}valid2id.txt")
+    train_hrt = load_hrt(cfg['dataset_dir'] + f"{prefix}train2id.txt")
+    test_hrt  = load_hrt(cfg['dataset_dir'] + f"{prefix}test2id.txt")
+    valid_hrt = load_hrt(cfg['dataset_dir'] + f"{prefix}valid2id.txt")
     original_hrt = train_hrt + test_hrt + valid_hrt
     print(f"[DATA] entities={len(emap)} relations={len(rmap)} "
           f"train={len(train_hrt)} test={len(test_hrt)} valid={len(valid_hrt)} total={len(original_hrt)}")
