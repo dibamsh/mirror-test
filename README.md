@@ -1,7 +1,4 @@
-# Infinity Mirror Test — KGE Centrality Bias
-
-Tests whether knowledge graph embedding models are biased toward predicting high-PageRank (hub) entities.
-
+# Infinity Mirror Test
 ---
 
 ## Setup
