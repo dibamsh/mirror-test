@@ -1,6 +1,5 @@
 # Infinity Mirror Test
 
----
 
 ## Setup
 
@@ -52,15 +51,6 @@ python main.py --dataset nell --model transe --mode replace --n_iters 10
 ```
 
 Results are saved to `{dataset}_{model}_{mode}.log`.
-
-**Options:**
-
-| Argument | Values | Required |
-|----------|--------|----------|
-| `--dataset` | `nell`, `fb15k237` | yes |
-| `--model` | `transe`, `rotate`, `complex`, `boxe` | no — runs all 4 if omitted |
-| `--mode` | `replace`, `add` | no — runs both if omitted |
-| `--n_iters` | any integer (e.g. 10) | yes |
 
 **Run all models and modes for NELL-995:**
 ```bash
