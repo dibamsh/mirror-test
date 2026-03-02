@@ -81,9 +81,9 @@ python main.py --dataset fb15k237 --n_iters 10
 
 ### Two modes
 
-**replace** — each iteration, predictions *replace* the test facts. The model then predicts on its own previous output, creating a feedback loop.
+**replace** — each iteration, predictions *replace* the test facts. 
 
-**add** — test facts stay fixed, but each iteration's predictions are excluded from future candidates. The model is forced to find its next-best answer each time.
+**add** — test facts stay fixed, but each iteration's predictions are excluded from future candidates. 
 
 ### The bias metric
 
