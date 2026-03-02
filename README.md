@@ -1,4 +1,5 @@
 # Infinity Mirror Test
+
 ---
 
 ## Setup
@@ -9,11 +10,15 @@ Download from: https://drive.google.com/drive/u/0/folders/14jzhmwUrQmreZfmMH8eC8
 
 Folders **2** (FB15K237) and **3** (NELL-995) are used in this project.
 
-Extract them so the structure looks like:
+1. Create a folder called `Model` inside the project directory
+2. Download folders **2** and **3** from the Drive and put them inside `Model/`
+
+The structure should look like this:
 ```
-Model/
-  2/   ← FB15K237 models
-  3/   ← NELL-995 models
+mirror-test/
+  Model/
+    2/   ← FB15K237 models (e.g. transe__66_Expl.model)
+    3/   ← NELL-995 models (e.g. transe_resplit__67_Expl.model)
 ```
 
 ### 2. Install requirements
@@ -24,7 +29,14 @@ pip install -r requirements.txt
 
 ### 3. Set model paths
 
-Open `main.py` and update these two lines to point to your model folders:
+Open `main.py` and update these two lines to the full path of your Model folder:
+
+```python
+NELL_MODEL_DIR     = '/your/path/to/Model/3/'
+FB15K237_MODEL_DIR = '/your/path/to/Model/2/'
+```
+
+If you placed `Model/` inside the project folder (as shown above), the defaults already work:
 
 ```python
 NELL_MODEL_DIR     = 'Model/3/'
@@ -33,38 +45,30 @@ FB15K237_MODEL_DIR = 'Model/2/'
 
 ---
 
-## How to run
+## Run experiments
 
 ```bash
-python main.py
-```
-
-It will ask four questions:
-
-```
-dataset (nell / fb15k237)?
-model (transe / rotate / complex / boxe)?
-mode (replace / add)?
-iterations?
-```
-
-**Example — NELL-995:**
-```
-dataset (nell / fb15k237)? nell
-model (transe / rotate / complex / boxe)? transe
-mode (replace / add)? replace
-iterations? 5
-```
-
-**Example — FB15K237:**
-```
-dataset (nell / fb15k237)? fb15k237
-model (transe / rotate / complex / boxe)? transe
-mode (replace / add)? replace
-iterations? 5
+python main.py --dataset nell --model transe --mode replace --n_iters 10
 ```
 
 Results are saved to `{dataset}_{model}_{mode}.log`.
+
+**NELL-995 examples:**
+```bash
+python main.py --dataset nell --model transe --mode replace --n_iters 10
+python main.py --dataset nell --model rotate --mode add --n_iters 10
+```
+
+**FB15K237 examples:**
+```bash
+python main.py --dataset fb15k237 --model transe --mode replace --n_iters 10
+python main.py --dataset fb15k237 --model rotate --mode add --n_iters 10
+```
+
+To save output to a file:
+```bash
+python main.py --dataset nell --model transe --mode replace --n_iters 10 > nell_transe_replace.log 2>&1
+```
 
 ---
 
@@ -77,16 +81,6 @@ Results are saved to `{dataset}_{model}_{mode}.log`.
 - `[TIME]` — scoring time per iteration
 
 ---
-
-## Code overview
-
-| File | What it does |
-|------|--------------|
-| `main.py` | Entry point. Asks for inputs, runs the experiment, saves output to a log file. |
-| `infinity_mirror.py` | Core experiment. Loads model and dataset, runs the mirror test, logs bias results. |
-| `pagerank.py` | Standard PageRank on a directed multigraph. |
-| `AugmentedKGE/` | Provides TripleManager for candidate filtering under LCWA. Copied from [nari97/AugmentedKGE](https://github.com/nari97/AugmentedKGE). |
-| `datasets/` | NELL-995 and FB15K237 triple files (train/valid/test). |
 
 ### Two modes
 
