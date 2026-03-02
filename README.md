@@ -53,21 +53,28 @@ python main.py --dataset nell --model transe --mode replace --n_iters 10
 
 Results are saved to `{dataset}_{model}_{mode}.log`.
 
-**NELL-995 examples:**
+**Options:**
+
+| Argument | Values | Required |
+|----------|--------|----------|
+| `--dataset` | `nell`, `fb15k237` | yes |
+| `--model` | `transe`, `rotate`, `complex`, `boxe` | no — runs all 4 if omitted |
+| `--mode` | `replace`, `add` | no — runs both if omitted |
+| `--n_iters` | any integer (e.g. 10) | yes |
+
+**Run all models and modes for NELL-995:**
+```bash
+python main.py --dataset nell --n_iters 10
+```
+
+**Run a specific model and mode:**
 ```bash
 python main.py --dataset nell --model transe --mode replace --n_iters 10
-python main.py --dataset nell --model rotate --mode add --n_iters 10
 ```
 
-**FB15K237 examples:**
+**FB15K237, all models and modes:**
 ```bash
-python main.py --dataset fb15k237 --model transe --mode replace --n_iters 10
-python main.py --dataset fb15k237 --model rotate --mode add --n_iters 10
-```
-
-To save output to a file:
-```bash
-python main.py --dataset nell --model transe --mode replace --n_iters 10 > nell_transe_replace.log 2>&1
+python main.py --dataset fb15k237 --n_iters 10
 ```
 
 ---
