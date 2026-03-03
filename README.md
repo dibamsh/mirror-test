@@ -46,25 +46,30 @@ FB15K237_MODEL_DIR = 'Model/2/'
 
 ## Run experiments
 
-```bash
-python main.py --dataset nell --model transe --mode replace --n_iters 10
-```
-
 Results are saved to `{dataset}_{model}_{mode}.log`.
+
+**Arguments:**
+
+| Argument | Required | Values | Default |
+|----------|----------|--------|---------|
+| `--dataset` | yes | `nell`, `fb15k237` | — |
+| `--model` | no | `transe`, `rotate`, `complex`, `boxe` | all 4 |
+| `--mode` | no | `replace`, `add` | both |
+| `--n_iters` | yes | any integer | — |
 
 **Run all models and modes for NELL-995:**
 ```bash
 python main.py --dataset nell --n_iters 10
 ```
 
+**Run all models and modes for FB15K237:**
+```bash
+python main.py --dataset fb15k237 --n_iters 10
+```
+
 **Run a specific model and mode:**
 ```bash
 python main.py --dataset nell --model transe --mode replace --n_iters 10
-```
-
-**FB15K237, all models and modes:**
-```bash
-python main.py --dataset fb15k237 --n_iters 10
 ```
 
 ---
