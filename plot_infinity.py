@@ -90,7 +90,7 @@ def make_plots(data, out_dir):
 
 def main():
     log_dir = sys.argv[1] if len(sys.argv) > 1 else 'logs/LogsIMT'
-    out_dir  = sys.argv[2] if len(sys.argv) > 2 else '.'
+    out_dir  = sys.argv[2] if len(sys.argv) > 2 else 'plots'
     data = parse_logs(log_dir)
     print(f'Parsed {sum(len(m) for ds in data.values() for m in ds.values())} experiments '
           f'across {len(data)} datasets.')
