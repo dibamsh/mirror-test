@@ -16,3 +16,7 @@ Models
 datasets/datasets
 .ipynb_checkpoints/
 NOTES.md
+parse_bias.py
+plot_infinity.py
+plots/
+results.csv
