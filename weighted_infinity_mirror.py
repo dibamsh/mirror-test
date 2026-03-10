@@ -5,7 +5,7 @@ import numpy as np, torch, networkx as nx
 
 from DataLoader.TripleManager import TripleManager
 from Utils import DatasetUtils
-from pagerank import standard_pagerank
+from pagerank import weighted_pagerank
 
 def load_maps(dataset_dir):
     def read(p):
@@ -145,7 +145,7 @@ def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
     test_set = set(tm.tripleList)
     base_graph_triples = [tri for tri in original_hrt if tri not in test_set]
 
-    _, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
+    _, it0 = weighted_pagerank(build_graph(original_hrt, emap, rmap))
     print(f"[ITER] iteration=0 new_triples=0 total_triples={len(original_hrt)} pagerank_iters={it0}")
 
     current_facts = test_hrt
@@ -163,7 +163,7 @@ def run_replace(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
 
         # Graph = base (train+valid) + new predictions (replacing old test facts)
         all_graph = base_graph_triples + tail_preds + head_preds
-        pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
+        pr, pr_iters = weighted_pagerank(build_graph(all_graph, emap, rmap))
 
         log_bias(it, results, pr, len(all_graph), len(tail_preds) + len(head_preds), pr_iters)
         save_scores(it, results, emap, rmap)
@@ -193,7 +193,7 @@ def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
     """
     print(f"[MODE] approach=add iterations={n_iters}")
 
-    _, it0 = standard_pagerank(build_graph(original_hrt, emap, rmap))
+    _, it0 = weighted_pagerank(build_graph(original_hrt, emap, rmap))
     print(f"[ITER] iteration=0 new_triples=0 total_triples={len(original_hrt)} pagerank_iters={it0}")
 
     extra_excl   = set()       # grows each iter: (h,r,t) triples already predicted
@@ -216,7 +216,7 @@ def run_add(model, tm, emap, rmap, original_hrt, test_hrt, n_iters):
         accumulated.update(new_this_iter)
 
         all_graph = original_hrt + list(accumulated)
-        pr, pr_iters = standard_pagerank(build_graph(all_graph, emap, rmap))
+        pr, pr_iters = weighted_pagerank(build_graph(all_graph, emap, rmap))
 
         log_bias(it, results, pr, len(all_graph), len(new_this_iter), pr_iters)
         save_scores(it, results, emap, rmap)
